@@ -6,7 +6,7 @@ from app.modules.perfumes.router import router as perfume_router
 
 Base.metadata.create_all(bind=engine)
 
-app = FastAPI(title="Perfume Inventory API")
+app = FastAPI(title="Perfume Inventory")
 
 app.include_router(auth_router)
 app.include_router(perfume_router)
