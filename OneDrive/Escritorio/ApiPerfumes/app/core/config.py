@@ -1,17 +1,14 @@
-from pydantic_settings import BaseSettings
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
+    model_config = SettingsConfigDict(env_file=".env")
+
     APP_NAME: str = "ApiPerfumes"
-
-    DATABASE_URL: str = "mysql+pymysql://root:password@localhost:3306/perfumes_db"
-
-    SECRET_KEY: str = "super-secret-key-change-this"
+    DATABASE_URL: str
+    SECRET_KEY: str
     ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60
-
-    class Config:
-        env_file = ".env"
 
 
 settings = Settings()
