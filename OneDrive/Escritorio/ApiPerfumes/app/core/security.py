@@ -1,64 +1,77 @@
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
+from typing import Any, Dict
+
 from jose import jwt, JWTError
 from passlib.context import CryptContext
-from fastapi import HTTPException, status
+
 from app.core.config import settings
 
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
+pwd_context = CryptContext(
+    schemes=["bcrypt"],
+    deprecated="auto",
+)
+
+
+# ==============================
+# Password Utilities
+# ==============================
 
 def hash_password(password: str) -> str:
-    if not password:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail={"error_code": "INVALID_PASSWORD", "message": "La contraseña no puede estar vacía"}
-        )
+    """
+    Hashes a plain text password using bcrypt.
+    """
+    if not password or not password.strip():
+        raise ValueError("Password cannot be empty.")
+
+    return pwd_context.hash(password)
+
+
+def verify_password(password: str, hashed_password: str) -> bool:
+    """
+    Verifies a plain password against a hashed password.
+    """
+    if not password or not hashed_password:
+        return False
+
+    return pwd_context.verify(password, hashed_password)
+
+
+# ==============================
+# JWT Utilities
+# ==============================
+
+def create_access_token(
+    subject: str,
+    additional_claims: Dict[str, Any] | None = None,
+    expires_minutes: int = settings.ACCESS_TOKEN_EXPIRE_MINUTES,
+) -> str:
+    """
+    Creates a signed JWT access token.
+    """
+
+    if not subject:
+        raise ValueError("Token subject (sub) is required.")
+
+    if not settings.SECRET_KEY:
+        raise RuntimeError("SECRET_KEY is not configured.")
+
+    expire = datetime.now(timezone.utc) + timedelta(minutes=expires_minutes)
+
+    payload: Dict[str, Any] = {
+        "sub": subject,
+        "exp": expire,
+        "iat": datetime.now(timezone.utc),
+    }
+
+    if additional_claims:
+        payload.update(additional_claims)
+
     try:
-        return pwd_context.hash(password)
-    except Exception:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail={"error_code": "HASH_ERROR", "message": "Error al encriptar la contraseña"}
-        )
-
-
-def verify_password(password: str, hashed: str) -> bool:
-    try:
-        return pwd_context.verify(password, hashed)
-    except Exception:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail={"error_code": "VERIFY_ERROR", "message": "Error al verificar la contraseña"}
-        )
-
-
-def create_access_token(data: dict, expires_minutes: int = settings.ACCESS_TOKEN_EXPIRE_MINUTES):
-    if not data or "sub" not in data:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail={"error_code": "INVALID_TOKEN_DATA", "message": "Datos inválidos para generar token"}
-        )
-
-    try:
-        expire = datetime.utcnow() + timedelta(minutes=expires_minutes)
-        to_encode = data.copy()
-        to_encode.update({
-            "exp": expire,
-            "iat": datetime.utcnow()
-        })
-
         return jwt.encode(
-            to_encode,
+            payload,
             settings.SECRET_KEY,
-            algorithm=settings.ALGORITHM
+            algorithm=settings.ALGORITHM,
         )
-    except JWTError:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail={"error_code": "TOKEN_ERROR", "message": "Error al generar el token JWT"}
-        )
-    except Exception:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail={"error_code": "SERVER_ERROR", "message": "Error interno al generar token"}
-        )
+    except JWTError as e:
+        raise RuntimeError(f"JWT encoding failed: {str(e)}") from e
