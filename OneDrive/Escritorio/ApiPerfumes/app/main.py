@@ -1,47 +1,82 @@
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
+
 from app.core.database import Base, engine
+from app.core.config import settings
 from app.modules.auth.router import router as auth_router
 from app.modules.perfumes.router import router as perfume_router
 
-Base.metadata.create_all(bind=engine)
+
+# ==========================================
+# Lifespan
+# ==========================================
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    if settings.AUTO_CREATE_TABLES:
+        Base.metadata.create_all(bind=engine)
+    yield
+
+
+# ==========================================
+# App Initialization
+# ==========================================
 
 app = FastAPI(
     title="Perfume Inventory API",
-    description="API para gestionar usuarios y perfumes con autenticación JWT",
+    description="API para gestión de perfumes con autenticación JWT",
     version="1.0.0",
-    contact={
-        "name": "Equipo de Desarrollo",
-        "email": "soporte@perfumeapi.com",
-    }
+    lifespan=lifespan,
 )
 
-# Configuración de CORS
+
+# ==========================================
+# CORS (Permitir todos los origins)
+# ==========================================
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Cambia esto a dominios específicos en producción
-    allow_credentials=True,
+    allow_origins=["*"],   # Escucha cualquier origin
+    allow_credentials=False,  # Obligatorio cuando usas "*"
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-@app.middleware("http")
-async def global_exception_handler(request: Request, call_next):
-    try:
-        response = await call_next(request)
-        return response
-    except Exception as exc:
-        return JSONResponse(
-            status_code=500,
-            content={"error_code": "SERVER_ERROR", "message": "Error interno del servidor"}
-        )
 
+# ==========================================
+# Global Exception Handler
+# ==========================================
+
+@app.exception_handler(Exception)
+async def unhandled_exception_handler(request: Request, exc: Exception):
+    return JSONResponse(
+        status_code=500,
+        content={
+            "error_code": "SERVER_ERROR",
+            "message": "Internal server error",
+        },
+    )
+
+
+# ==========================================
 # Routers
-app.include_router(auth_router)
-app.include_router(perfume_router)
+# ==========================================
 
-# Endpoint de healthcheck
+app.include_router(auth_router, prefix="/api/v1")
+app.include_router(perfume_router, prefix="/api/v1")
+
+
+# ==========================================
+# Health Check
+# ==========================================
+
 @app.get("/health", tags=["System"])
 def health_check():
-    return {"status": "ok", "message": "API funcionando correctamente"}
+    return {
+        "status": "ok",
+        "service": "Perfume Inventory API",
+        "version": app.version,
+    }
