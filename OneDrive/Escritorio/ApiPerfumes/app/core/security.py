@@ -56,12 +56,13 @@ def create_access_token(
     if not settings.SECRET_KEY:
         raise RuntimeError("SECRET_KEY is not configured.")
 
-    expire = datetime.now(timezone.utc) + timedelta(minutes=expires_minutes)
+    now = datetime.now(timezone.utc)
+    expire = now + timedelta(minutes=expires_minutes)
 
     payload: Dict[str, Any] = {
         "sub": subject,
-        "exp": expire,
-        "iat": datetime.now(timezone.utc),
+        "exp": int(expire.timestamp()),   # ✅ timestamp limpio
+        "iat": int(now.timestamp()),      # ✅ timestamp limpio
     }
 
     if additional_claims:

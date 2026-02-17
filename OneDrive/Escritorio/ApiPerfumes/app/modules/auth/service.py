@@ -55,9 +55,10 @@ def login_user(db: Session, data):
 
     try:
         token = create_access_token(
-            {"sub": str(user.id)},
-            settings.ACCESS_TOKEN_EXPIRE_MINUTES
-        )
+    subject=str(user.id),
+    expires_minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES
+)
+
         return token
     except Exception:
         raise HTTPException(

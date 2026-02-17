@@ -16,8 +16,7 @@ from app.modules.perfumes.router import router as perfume_router
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    if settings.AUTO_CREATE_TABLES:
-        Base.metadata.create_all(bind=engine)
+    
     yield
 
 
@@ -69,9 +68,6 @@ app.include_router(auth_router, prefix="/api/v1")
 app.include_router(perfume_router, prefix="/api/v1")
 
 
-# ==========================================
-# Health Check
-# ==========================================
 
 @app.get("/health", tags=["System"])
 def health_check():
